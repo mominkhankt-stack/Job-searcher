@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Knowledge Management | RAG System</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 min-h-screen text-slate-100 flex flex-col justify-between selection:bg-indigo-500 selection:text-white">
+
+    <!-- Top Navbar -->
+    <header class="w-full border-b border-slate-700/60 bg-slate-900/50 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="h-10 w-10 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                    <i class="fa-solid fa-brain text-white text-lg"></i>
+                </div>
+                <span class="font-bold text-xl tracking-wide bg-gradient-to-r from-white via-indigo-200 to-indigo-400 bg-clip-text text-transparent">
+                    NexusRAG <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Groq + Pinecone</span>
+                </span>
+            </div>
+            <div class="flex items-center space-x-2 text-sm text-slate-400">
+                <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>System Online</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-4xl mx-auto px-6 py-12 w-full flex-grow flex flex-col space-y-8">
+        
+        <!-- Hero Section Title -->
+        <div class="text-center space-y-2">
+            <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">Knowledge Base Assistant</h1>
+            <p class="text-slate-400 text-sm sm:text-base max-w-xl mx-auto">Upload your documents and query your private data instantly using high-performance vector retrieval.</p>
+        </div>
+
+        <!-- Document Upload Card -->
+        <div class="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-6 backdrop-blur-xl shadow-xl transition-all hover:border-slate-600">
+            <h2 class="text-lg font-semibold flex items-center space-x-2 text-slate-200 mb-4">
+                <i class="fa-solid fa-cloud-arrow-up text-indigo-400"></i>
+                <span>Upload Source Documents</span>
+            </h2>
+            <form action="/upload" method="POST" enctype="multipart/form-data" class="flex flex-col sm:flex-row items-center gap-4">
+                <div class="relative w-full flex-grow">
+                    <input type="file" name="file" id="file-input" required
+                           class="w-full text-sm text-slate-400 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 file:cursor-pointer file:transition-all bg-slate-900/50 border border-slate-700 rounded-xl cursor-pointer">
+                </div>
+                <button type="submit" 
+                        class="w-full sm:w-auto px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm rounded-xl transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center space-x-2 shrink-0">
+                    <i class="fa-solid fa-upload"></i>
+                    <span>Upload & Embed</span>
+                </button>
+            </form>
+        </div>
+
+        <!-- Query Form Card -->
+        <div class="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-6 backdrop-blur-xl shadow-xl transition-all hover:border-slate-600">
+            <h2 class="text-lg font-semibold flex items-center space-x-2 text-slate-200 mb-4">
+                <i class="fa-solid fa-wand-magic-sparkles text-indigo-400"></i>
+                <span>Ask Questions</span>
+            </h2>
+            <form action="/predict" method="POST" class="space-y-4">
+                <div class="relative">
+                    <textarea name="question" rows="3" required placeholder="Ask anything about your uploaded documents..."
+                              class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-4 text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all resize-none"></textarea>
+                </div>
+                <button type="submit" 
+                        class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm rounded-xl transition-all shadow-lg shadow-indigo-600/20 flex items-center space-x-2">
+                    <i class="fa-solid fa-paper-plane"></i>
+                    <span>Generate Answer</span>
+                </button>
+            </form>
+        </div>
+
+        <!-- Response Output Card (Conditionally styled if response exists) -->
+        {% if response %}
+        <div class="bg-slate-800/80 border border-indigo-500/40 rounded-2xl p-6 backdrop-blur-xl shadow-2xl animate-fade-in">
+            <div class="flex items-center justify-between mb-3 border-b border-slate-700/60 pb-3">
+                <h3 class="text-sm font-semibold uppercase tracking-wider text-indigo-400 flex items-center space-x-2">
+                    <i class="fa-solid fa-robot"></i>
+                    <span>Response Output</span>
+                </h3>
+                <span class="text-xs text-slate-400">Groq LLM + Pinecone RAG</span>
+            </div>
+            <div class="text-slate-200 text-sm sm:text-base leading-relaxed whitespace-pre-wrap font-light">
+                {{ response }}
+            </div>
+        </div>
+        {% endif %}
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="w-full border-t border-slate-800 bg-slate-900/40 py-6 text-center text-xs text-slate-500">
+        <p>&copy; 2026 NexusRAG Knowledge Management System. Built with Flask, Groq & Pinecone.</p>
+    </footer>
+
+</body>
+</html>

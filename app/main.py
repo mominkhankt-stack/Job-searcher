@@ -1,0 +1,128 @@
+import os
+import certifi
+from flask import Flask, request, render_template, jsonify
+from models.vector_store import VectorStore
+from services.llm_service import LLMService
+from config import Config
+import os
+import tempfile
+import logging
+
+# Modern LangChain document loader imports
+from langchain_community.document_loaders import TextLoader, PyPDFLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+app = Flask(__name__)
+os.environ['SSL_CERT_FILE'] = certifi.where()
+vector_store = VectorStore(Config.PINECONE_INDEX_NAME)
+llm_service = LLMService(vector_store)
+
+
+@app.route('/')
+def index():
+    return render_template('template.html')
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
+def process_document(file):
+    """Process document based on file type and return text chunks"""
+    temp_dir = tempfile.mkdtemp()
+    temp_path = os.path.join(temp_dir, file.filename)
+    
+    try:
+        # Save file temporarily
+        file.save(temp_path)
+        
+        # Process based on file type using modern loaders
+        if file.filename.endswith('.pdf'):
+            loader = PyPDFLoader(temp_path)
+            documents = loader.load()
+        elif file.filename.endswith('.txt'):
+            loader = TextLoader(temp_path)
+            documents = loader.load()
+        else:
+            raise ValueError("Unsupported file type")
+
+        # Split text into chunks
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000,
+            chunk_overlap=200
+        )
+        text_chunks = text_splitter.split_documents(documents)
+        
+        return text_chunks
+        
+    finally:
+        # Clean up temp file
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        os.rmdir(temp_dir)
+
+@app.route('/upload', methods=['POST'])
+def upload_document():
+    try:
+        logger.debug("Upload endpoint called")
+        
+        if 'file' not in request.files:
+            logger.warning("No file in request")
+            return jsonify({'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            logger.warning("Empty filename")
+            return jsonify({'error': 'No file selected'}), 400
+
+        # Check file extension
+        if not file.filename.endswith(('.txt', '.pdf')):
+            logger.warning(f"Unsupported file type: {file.filename}")
+            return jsonify({'error': 'Only .txt and .pdf files are supported'}), 400
+
+        logger.debug(f"Processing file: {file.filename}")
+        
+        # Process the document (Chunks it up locally)
+        try:
+            text_chunks = process_document(file)
+            logger.debug(f"Document processed into {len(text_chunks)} chunks")
+        except Exception as e:
+            logger.error(f"Error processing document: {str(e)}")
+            return jsonify({'error': f'Error processing document: {str(e)}'}), 500
+
+
+        # Add to vector store (Pinecone)
+        try:
+            vector_store.add_documents(text_chunks)
+            logger.debug("Documents added to vector store")
+        except Exception as e:
+            logger.error(f"Error adding to vector store: {str(e)}")
+            return jsonify({'error': f'Error adding to vector store: {str(e)}'}), 500
+
+        return jsonify({
+            'message': 'File processed and embedded into Pinecone successfully',
+            'chunks_processed': len(text_chunks)
+        })
+
+    except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}")
+        return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
+
+@app.route('/predict', methods=['POST'])
+def predict():
+    # Get question from standard form submission (request.form instead of request.json)
+    question = request.form.get('question')
+    
+    if not question:
+        return render_template('template.html', response="Error: No question provided")
+
+    try:
+        response = llm_service.get_response(question)
+        # Render the template again, passing the AI response to display in the UI box
+        return render_template('template.html', response=response)
+    except Exception as e:
+        return render_template('template.html', response=f"Error generating answer: {str(e)}")
+
+
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=8080, debug=True)    
